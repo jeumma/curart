@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { View, Text, Image, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { exhibitions } from '../../store/exhibitions';
-import { seedExhibitions } from '../../store/seedFirebase';
 
 export default function HomeScreen() {
   const [saved, setSaved] = useState<number[]>([]);
@@ -10,12 +9,7 @@ export default function HomeScreen() {
   const toggleSave = (id: number) => {
     setSaved(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
-
-  useEffect(() => {
-    console.log('seeding...');
-    seedExhibitions();
-  }, []);
-
+  
   console.log('first exhibition:', exhibitions[0].description);
 
   return (
