@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
 import { router } from 'expo-router';
-import { exhibitions } from '../../store/exhibitions';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
 
 const cities = ["Alle", "Hamburg", "Berlin", "München", "Köln", "Frankfurt"];
 const genres = ["Alle", "Abstrakt", "Romantik", "Expressionismus", "Skulptur", "Design"];
 
 export default function SearchScreen() {
     const [query, setQuery] = useState('');
+    const [exhibitions, setExhibitions] = useState<any[]>([]);
     const [selectedCity, setSelectedCity] = useState('Alle');
     const [selectedGenre, setSelectedGenre] = useState('Alle');
 
@@ -18,6 +20,20 @@ export default function SearchScreen() {
         const matchGenre = selectedGenre === 'Alle' || ex.genre === selectedGenre;
         return matchQuery && matchCity && matchGenre;
     });
+
+    useEffect(() => {
+        const fetchExhibitions = async () => {
+          try {
+            const snapshot = await getDocs(collection(db, 'exhibitions'));
+            const data = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+            console.log('불러온 데이터:', data.length);
+            setExhibitions(data);
+          } catch (error) {
+            console.error('오류:', error);
+          }
+        };
+        fetchExhibitions();
+      }, []);
 
     return (
         <SafeAreaView style={styles.container}>

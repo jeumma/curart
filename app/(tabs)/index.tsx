@@ -1,16 +1,30 @@
 import { useState, useEffect } from 'react';
 import { View, Text, Image, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
-import { exhibitions } from '../../store/exhibitions';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
 
 export default function HomeScreen() {
   const [saved, setSaved] = useState<number[]>([]);
+  const [exhibitions, setExhibitions] = useState<any[]>([]);
 
   const toggleSave = (id: number) => {
     setSaved(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
-  
-  console.log('first exhibition:', exhibitions[0].description);
+
+  useEffect(() => {
+    const fetchExhibitions = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'exhibitions'));
+        const data = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+        console.log('불러온 데이터:', data.length);
+        setExhibitions(data);
+      } catch (error) {
+        console.error('오류:', error);
+      }
+    };
+    fetchExhibitions();
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
