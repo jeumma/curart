@@ -1,125 +1,113 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
-import { useStore } from '../../store/useStore';
-
-const mySchedule = [
-    {
-        id: 1,
-        title: "Gerhard Richter: Abstrakte Bilder",
-        museum: "Hamburger Kunsthalle",
-        city: "Hamburg",
-        visitDate: "2026-03-10",
-        image: "https://images.unsplash.com/photo-1605721911519-3dfeb3be25e7?w=600&q=80",
-        color: "#c8a882",
-        status: "upcoming"
-    },
-    {
-        id: 2,
-        title: "Caspar David Friedrich",
-        museum: "Alte Nationalgalerie",
-        city: "Berlin",
-        visitDate: "2026-03-22",
-        image: "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=600&q=80",
-        color: "#8899aa",
-        status: "upcoming"
-    },
-    {
-        id: 3,
-        title: "Bauhaus & Moderne",
-        museum: "Museum Ludwig",
-        city: "Köln",
-        visitDate: "2026-02-15",
-        image: "https://images.unsplash.com/photo-1561214115-f2f134cc4912?w=600&q=80",
-        color: "#b5a0c8",
-        status: "visited"
-    },
-];
+import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
 
 const months = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
 const days = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
 export default function CalendarScreen() {
-    const calendar = useStore((state) => state.calendar);
-    const removeFromCalendar = useStore((state) => state.removeFromCalendar);
-    const [filter, setFilter] = useState<'upcoming' | 'visited'>('upcoming');
+  const [calendar, setCalendar] = useState<any[]>([]);
+  const [filter, setFilter] = useState<'upcoming' | 'visited'>('upcoming');
 
-    const visible = filter === 'upcoming' ? calendar : [];
+  useEffect(() => {
+    fetchCalendar();
+  }, []);
 
-    const formatDate = (dateStr: string) => {
-        const d = new Date(dateStr);
-        return `${days[d.getDay()]}, ${d.getDate()}. ${months[d.getMonth()]} ${d.getFullYear()}`;
-    };
+  const fetchCalendar = async () => {
+  try {
+    console.log('캘린더 불러오기 시작');
+    const snapshot = await getDocs(collection(db, 'calendar'));
+    console.log('불러온 데이터:', snapshot.docs.length);
+    const data = snapshot.docs.map(d => ({ docId: d.id, ...d.data() }));
+    setCalendar(data);
+  } catch (error) {
+    console.error('오류:', error);
+  }
+};
 
-    const daysUntil = (dateStr: string) => {
-        return Math.ceil((new Date(dateStr).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-    };
+  const removeFromCalendar = async (docId: string) => {
+    try {
+      await deleteDoc(doc(db, 'calendar', docId));
+      setCalendar(prev => prev.filter(ex => ex.docId !== docId));
+    } catch (error) {
+      console.error('오류:', error);
+    }
+  };
 
-    return (
-        <SafeAreaView style={styles.container}>
-            <ScrollView>
-                <View style={styles.header}>
-                    <Text style={styles.subtitle}>Meine Ausstellungen</Text>
-                    <Text style={styles.title}>Kalender</Text>
+  const visible = filter === 'upcoming' ? calendar : [];
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return `${days[d.getDay()]}, ${d.getDate()}. ${months[d.getMonth()]} ${d.getFullYear()}`;
+  };
+
+  const daysUntil = (dateStr: string) => {
+    return Math.ceil((new Date(dateStr).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView>
+        <View style={styles.header}>
+          <Text style={styles.subtitle}>Meine Ausstellungen</Text>
+          <Text style={styles.title}>Kalender</Text>
+        </View>
+
+        <View style={styles.filterRow}>
+          {(['upcoming', 'visited'] as const).map(f => (
+            <TouchableOpacity key={f} onPress={() => setFilter(f)} style={[
+              styles.filterChip,
+              filter === f && styles.filterChipActive
+            ]}>
+              <Text style={[styles.filterChipText, filter === f && styles.filterChipTextActive]}>
+                {f === 'upcoming' ? 'Geplant' : 'Besucht'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.list}>
+          {visible.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>□</Text>
+              <Text style={styles.emptyText}>
+                {filter === 'upcoming' ? 'Keine geplanten Besuche' : 'Noch keine besuchten Ausstellungen'}
+              </Text>
+            </View>
+          ) : visible.map(ex => (
+            <View key={ex.docId} style={styles.card}>
+              <View style={styles.dateBar}>
+                <View style={[styles.dateBox, { borderColor: ex.color + '44' }]}>
+                  <Text style={[styles.dateDay, { color: ex.color }]}>{new Date(ex.visitDate).getDate()}</Text>
+                  <Text style={styles.dateMonth}>{months[new Date(ex.visitDate).getMonth()]}</Text>
                 </View>
-
-                {/* Filter */}
-                <View style={styles.filterRow}>
-                    {(['upcoming', 'visited'] as const).map(f => (
-                        <TouchableOpacity key={f} onPress={() => setFilter(f)} style={[
-                            styles.filterChip,
-                            filter === f && styles.filterChipActive
-                        ]}>
-                            <Text style={[styles.filterChipText, filter === f && styles.filterChipTextActive]}>
-                                {f === 'upcoming' ? 'Geplant' : 'Besucht'}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
+                <View>
+                  <Text style={styles.dateText}>{formatDate(ex.visitDate)}</Text>
+                  {filter === 'upcoming' && (
+                    <Text style={[styles.daysLeft, { color: ex.color }]}>
+                      {daysUntil(ex.visitDate)} Tage noch
+                    </Text>
+                  )}
                 </View>
+              </View>
 
-                {/* List */}
-                <View style={styles.list}>
-                    {visible.length === 0 ? (
-                        <View style={styles.empty}>
-                            <Text style={styles.emptyIcon}>□</Text>
-                            <Text style={styles.emptyText}>
-                                {filter === 'upcoming' ? 'Keine geplanten Besuche' : 'Noch keine besuchten Ausstellungen'}
-                            </Text>
-                        </View>
-                    ) : visible.map(ex => (
-                        <View key={ex.id} style={styles.card}>
-                            {/* Date bar */}
-                            <View style={styles.dateBar}>
-                                <View style={[styles.dateBox, { borderColor: ex.color + '44' }]}>
-                                    <Text style={[styles.dateDay, { color: ex.color }]}>{new Date(ex.visitDate).getDate()}</Text>
-                                    <Text style={styles.dateMonth}>{months[new Date(ex.visitDate).getMonth()]}</Text>
-                                </View>
-                                <View>
-                                    <Text style={styles.dateText}>{formatDate(ex.visitDate)}</Text>
-                                    {filter === 'upcoming' && (
-                                        <Text style={[styles.daysLeft, { color: ex.color }]}>
-                                            {daysUntil(ex.visitDate)} Tage noch
-                                        </Text>
-                                    )}
-                                </View>
-                            </View>
-
-                            {/* Exhibition */}
-                            <View style={styles.cardBody}>
-                                <Image source={{ uri: ex.image }} style={styles.cardImage} />
-                                <View style={styles.cardInfo}>
-                                    <Text style={styles.cardTitle}>{ex.title}</Text>
-                                    <Text style={styles.cardMuseum}>{ex.museum} · {ex.city}</Text>
-                                    <TouchableOpacity onPress={() => removeFromCalendar(ex.id)} style={styles.removeBtn}>
-                                        <Text style={styles.removeBtnText}>Entfernen</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        </View>
-                    ))}
+              <View style={styles.cardBody}>
+                <Image source={{ uri: ex.image }} style={styles.cardImage} />
+                <View style={styles.cardInfo}>
+                  <Text style={styles.cardTitle}>{ex.title}</Text>
+                  <Text style={styles.cardMuseum}>{ex.museum} · {ex.city}</Text>
+                  <TouchableOpacity onPress={() => removeFromCalendar(ex.docId)} style={styles.removeBtn}>
+                    <Text style={styles.removeBtnText}>Entfernen</Text>
+                  </TouchableOpacity>
                 </View>
-            </ScrollView>
-        </SafeAreaView>
-    );
+              </View>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({

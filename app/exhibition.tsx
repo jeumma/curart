@@ -1,7 +1,8 @@
 import { View, Text, Image, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useStore } from '../store/useStore';
 import { Linking } from 'react-native';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 
 export default function ExhibitionScreen() {
     const { title, museum, city, date, image, tag, color, ticketUrl, description } = useLocalSearchParams<{
@@ -17,8 +18,6 @@ export default function ExhibitionScreen() {
     }>();
 
     console.log('description:', description);
-
-    const addToCalendar = useStore((state) => state.addToCalendar);
     console.log('ticketUrl:', ticketUrl);
 
     return (
@@ -49,17 +48,24 @@ export default function ExhibitionScreen() {
                     <Text style={[styles.ticketBtnText, { color: color }]}>Tickets kaufen →</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.addBtn} onPress={() => addToCalendar({
-                    id: String(Date.now()),
-                    title: title as string,
-                    museum: museum as string,
-                    city: city as string,
-                    date: date as string,
-                    image: image as string,
-                    tag: tag as string,
-                    color: color as string,
-                    visitDate: new Date().toISOString().split('T')[0],
-                })}>
+                <TouchableOpacity style={styles.addBtn} onPress={async () => {
+                    try {
+                        await addDoc(collection(db, 'calendar'), {
+                            title: String(title),
+                            museum: String(museum),
+                            city: String(city),
+                            date: String(date),
+                            image: String(image),
+                            tag: String(tag),
+                            color: String(color),
+                            visitDate: new Date().toISOString().split('T')[0],
+                        });
+                        console.log('캘린더 추가 완료');
+                        router.push('/(tabs)/calendar');
+                    } catch (error) {
+                        console.error('오류:', error);
+                    }
+                }}>
                     <Text style={styles.addBtnText}>+ Zum Kalender hinzufügen</Text>
                 </TouchableOpacity>
             </ScrollView>
